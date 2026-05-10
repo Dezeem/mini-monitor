@@ -25,7 +25,7 @@ int event_loop_init(event_loop_t *loop)
 int event_loop_add(event_loop_t *loop, int fd, event_callback_t cb, void *arg)
 {
     struct epoll_event ev;
-    ev.events = EPOLLIN;
+    ev.events = EPOLLIN | EPOLLET;
     ev.data.fd = fd;
 
     if(epoll_ctl(loop->epfd, EPOLL_CTL_ADD, fd, &ev) < 0) {

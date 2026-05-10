@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
 
 #include <arpa/inet.h>
 
@@ -15,25 +17,38 @@ static void client_callback(int fd, void *arg)
 {
     char buffer[BUFFER_SIZE];
 
-    int n = read(fd, buffer, sizeof(buffer) - 1);
+    while(1) {
+        int n = read(fd, buffer, sizeof(buffer) - 1);
 
-    if(n <= 0) {
-        printf("[INFO] client disconnected fd=%d\n", fd);
-        
-        close(fd);
+        if(n > 0) {
+            buffer[n] = '\0';
 
-        return;
+            printf("====== REQUEST ======\n");
+            printf("%s\n", buffer);
+        }
+        else if (n == 0) {
+            printf("[INFO] client disconnected fd=%d\n", fd);
+            
+            close(fd);
+
+            return;
+        }
+        else {
+            if(errno == EAGAIN || errno == EWOULDBLOCK) {
+                break;
+            }
+
+            perror("read");
+
+            close(fd);
+            return;
+        }
     }
-
-    buffer[n] = '\0';
-
-    printf("====== REQUEST ======\n");
-    printf("%s\n", buffer);
 
     const char *response = 
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: text/plain\r\n"
-        "Content-Length: 18\r\n"
+        "Content-Length: 20\r\n"
         "\r\n"
         "hello mini-monitor\r\n";
 
@@ -44,24 +59,33 @@ static void client_callback(int fd, void *arg)
 
 static void accept_callback(int fd, void *arg)
 {
-    struct sockaddr_in client_addr;
-    socklen_t len = sizeof(client_addr);
+    while(1) {
 
-    int client_fd = accept(fd, (struct sockaddr *)&client_addr, &len);
+        struct sockaddr_in client_addr;
+        socklen_t len = sizeof(client_addr);
 
-    if(client_fd < 0) {
-        perror("accept");
-        return;
+        int client_fd = accept(fd, (struct sockaddr *)&client_addr, &len);
+
+        if(client_fd < 0) {
+            if(errno == EAGAIN || errno == EWOULDBLOCK) {
+                break;
+            }
+
+            perror("accept");
+            return;
+        }
+
+        set_nonblocking(client_fd);
+
+        printf("[INFO] new client fd=%d\n", client_fd);
+
+        event_loop_add(
+            g_loop,
+            client_fd,
+            client_callback,
+            NULL
+        );
     }
-
-    printf("[INFO] new client fd=%d\n", client_fd);
-
-    event_loop_add(
-        g_loop,
-        client_fd,
-        client_callback,
-        NULL
-    );
 }
 
 int http_server_start(event_loop_t *loop, int port)
@@ -74,6 +98,8 @@ int http_server_start(event_loop_t *loop, int port)
         perror("socket");
         return -1;
     }
+
+    set_nonblocking(listen_fd);
 
     int opt = 1;
 
@@ -111,6 +137,23 @@ int http_server_start(event_loop_t *loop, int port)
         accept_callback,
         NULL
     );
+
+    return 0;
+}
+
+int set_nonblocking(int fd)
+{
+    int flags = fcntl(fd, F_GETFL, 0);
+
+    if(flags < 0) {
+        perror("fcntl F_GETFL");
+        return -1;
+    }
+
+    if(fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
+        perror("fcntl F_SETFL");
+        return -1;
+    }
 
     return 0;
 }

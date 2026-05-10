@@ -8,4 +8,6 @@ int http_server_start(
     int port
 );
 
+int set_nonblocking(int fd);
+
 #endif
