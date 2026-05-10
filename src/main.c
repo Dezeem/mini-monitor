@@ -1,4 +1,5 @@
 #include "event_loop.h"
+#include "http_server.h"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -13,7 +14,7 @@ static void timer_callback(int fd, void *arg)
 
     read(fd, &exp, sizeof(exp));
 
-    printf("[INFO] timer triggered\n");
+    printf("[INFO] timer triggered %lu\n", exp);
 }
 
 int main()
@@ -25,6 +26,10 @@ int main()
     }
 
     printf("[INFO] event loop start\n");
+
+    /*
+    * timerfd
+    */
 
     int tfd = timerfd_create(CLOCK_MONOTONIC, 0);
 
@@ -41,7 +46,14 @@ int main()
 
     event_loop_add(&loop, tfd, timer_callback, NULL);
 
-    printf("[INFO] timer fd registered\n");
+    /*
+    * http_server
+    */
+
+    http_server_start(
+        &loop,
+        8080
+    );
 
     event_loop_run(&loop);
 

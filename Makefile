@@ -4,7 +4,7 @@ CFLAG=-Wall -g -Iinclude
 
 SRC=$(wildcard src/*.c)
 
-TARGET=mini-monitor
+TARGET=./build/mini-monitor
 
 all:
 	$(CC) $(CFLAG) $(SRC) -o $(TARGET)
