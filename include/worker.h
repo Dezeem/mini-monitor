@@ -4,6 +4,9 @@
 typedef struct 
 {
     int client_fd;
+
+    char request[4096];
+    
 } task_t;
 
 int worker_pool_init(int num_threads);

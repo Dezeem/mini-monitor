@@ -1,5 +1,6 @@
 #include "worker.h"
 #include "queue.h"
+#include "metrics.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,35 +11,55 @@ static task_queue_t g_queue;
 
 static void process_task(task_t *task)
 {
-    char buffer[4096];
+    printf("====== REQUEST ======\n");
+    printf("%s\n", task->request);
 
-    int n = read(task->client_fd, buffer, sizeof(buffer) - 1);
+    metrics_inc_requests();
 
-    if(n <= 0) {
-        close(task->client_fd);
-        free(task);
-        return;
+    char response_buf[2048];
+    const char *response_ptr = NULL;
+    size_t response_len = 0;
+
+    if(strstr(task->request, "GET /metrics")) {
+        metrics_t snapshot;
+        metrics_snapshot(&snapshot);
+
+        char body[1024];
+        int body_len = snprintf(body, sizeof(body),
+                                "requests_total %lu\n"
+                                "active_connections %lu\n",
+                                snapshot.total_requests,
+                                snapshot.active_connections);
+
+        int len = snprintf(response_buf, sizeof(response_buf),
+                           "HTTP/1.1 200 OK\r\n"
+                           "Content-Type: text/plain\r\n"
+                           "Content-Length: %d\r\n"
+                           "\r\n"
+                           "%s",
+                           body_len, body);
+
+        if(len > 0 && len < (int)sizeof(response_buf)) {
+            response_ptr = response_buf;
+            response_len = len;
+        } else {
+            response_ptr = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
+            response_len = strlen(response_ptr);
+        }
+    } else {
+        sleep(2);
+
+        response_ptr = "HTTP/1.1 200 OK\r\n"
+                       "Content-Type: text/plain\r\n"
+                       "Content-Length: 20\r\n"
+                       "\r\n"
+                       "hello mini-monitor\r\n";
+        response_len = strlen(response_ptr);
     }
 
-    buffer[n] = '\0';
+    write(task->client_fd, response_ptr, response_len);
 
-    printf("====== REQUEST ======\n");
-    printf("%s\n", buffer);
-
-    /*
-    * process
-    */
-
-    sleep(2);
-
-    const char *response = 
-        "HTTP/1.1 200 OK\r\n"
-        "Content-Type: text/plain\r\n"
-        "Content-Length: 20\r\n"
-        "\r\n"
-        "hello mini-monitor\r\n";
-
-    write(task->client_fd, response, strlen(response));
+    metrics_dec_connections();
 
     close(task->client_fd);
 

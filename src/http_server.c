@@ -1,5 +1,7 @@
 #include "http_server.h"
 #include "worker.h"
+#include "connection.h"
+#include "metrics.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,11 +18,58 @@ static event_loop_t *g_loop = NULL;
 
 static void client_callback(int fd, void *arg)
 {
-    task_t *task = malloc(sizeof(task_t));
+    connection_t *conn = (connection_t *)arg;
 
-    task->client_fd = fd;
+    while(1) {
+        int n = read(fd, conn->read_buf, BUFF_SIZE - conn->read_len -1);
 
-    worker_submit(task);
+        if(n > 0) {
+            conn->read_len += n;
+
+            conn->read_buf[conn->read_len] = '\0';
+        }
+        else if(n == 0) {
+            printf("[INFO] client closed\n");
+
+            metrics_dec_connections();
+
+            close(fd);
+
+            return;
+        }
+        else {
+            if(errno == EAGAIN || errno == EWOULDBLOCK) {
+                break;
+            }
+
+            perror("read");
+
+            metrics_dec_connections();
+
+            close(fd);
+
+            free(conn);
+
+            return;
+        }
+    }
+
+    /*
+    * Simple HTTP Termination Check.
+    */
+
+    if(strstr(conn->read_buf, "\r\n\r\n")) {
+        task_t *task = malloc(sizeof(task_t));
+
+        task->client_fd = fd;
+
+        strcpy(
+            task->request,
+            conn->read_buf
+        );
+
+        worker_submit(task);
+    }
 }
 
 static void accept_callback(int fd, void *arg)
@@ -45,11 +94,17 @@ static void accept_callback(int fd, void *arg)
 
         printf("[INFO] new client fd=%d\n", client_fd);
 
+        connection_t *conn = malloc(sizeof(connection_t));
+        memset(conn, 0, sizeof(*conn));
+        conn->fd = client_fd;
+
+        metrics_inc_connections();
+
         event_loop_add(
             g_loop,
             client_fd,
             client_callback,
-            NULL
+            conn
         );
     }
 }
