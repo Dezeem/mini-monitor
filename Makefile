@@ -1,6 +1,6 @@
 CC=gcc
 
-CFLAG=-Wall -g -Iinclude
+CFLAG=-Wall -g -Iinclude -pthread
 
 SRC=$(wildcard src/*.c)
 

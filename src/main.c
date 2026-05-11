@@ -1,5 +1,7 @@
 #include "event_loop.h"
 #include "http_server.h"
+#include "worker.h"
+#include "queue.h"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -26,6 +28,8 @@ int main()
     }
 
     printf("[INFO] event loop start\n");
+
+    worker_pool_init(4);
 
     /*
     * timerfd

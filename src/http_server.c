@@ -1,4 +1,5 @@
 #include "http_server.h"
+#include "worker.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,46 +16,11 @@ static event_loop_t *g_loop = NULL;
 
 static void client_callback(int fd, void *arg)
 {
-    char buffer[BUFFER_SIZE];
+    task_t *task = malloc(sizeof(task_t));
 
-    while(1) {
-        int n = read(fd, buffer, sizeof(buffer) - 1);
+    task->client_fd = fd;
 
-        if(n > 0) {
-            buffer[n] = '\0';
-
-            printf("====== REQUEST ======\n");
-            printf("%s\n", buffer);
-        }
-        else if (n == 0) {
-            printf("[INFO] client disconnected fd=%d\n", fd);
-            
-            close(fd);
-
-            return;
-        }
-        else {
-            if(errno == EAGAIN || errno == EWOULDBLOCK) {
-                break;
-            }
-
-            perror("read");
-
-            close(fd);
-            return;
-        }
-    }
-
-    const char *response = 
-        "HTTP/1.1 200 OK\r\n"
-        "Content-Type: text/plain\r\n"
-        "Content-Length: 20\r\n"
-        "\r\n"
-        "hello mini-monitor\r\n";
-
-    write(fd, response, strlen(response));
-
-    close(fd);
+    worker_submit(task);
 }
 
 static void accept_callback(int fd, void *arg)
