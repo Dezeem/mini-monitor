@@ -3,47 +3,48 @@
 
 static metrics_t g_metrics;
 
-static pthread_rwlock_t g_lock;
-
 int metrics_init()
 {
-    pthread_rwlock_init(&g_lock, NULL);
+    atomic_init(
+        &g_metrics.total_requests, 
+        0
+    );
+
+    atomic_init(
+        &g_metrics.active_connections, 
+        0
+    );
 
     return 0;
 }
 
 void metrics_inc_requests()
 {
-    pthread_rwlock_wrlock(&g_lock);
-
-    g_metrics.total_requests++;
-
-    pthread_rwlock_unlock(&g_lock);
+    atomic_fetch_add(
+        &g_metrics.total_requests, 
+        1
+    );
 }
 
 void metrics_inc_connections()
 {
-    pthread_rwlock_wrlock(&g_lock);
-
-    g_metrics.active_connections++;
-
-    pthread_rwlock_unlock(&g_lock);
+    atomic_fetch_add(
+        &g_metrics.active_connections, 
+        1
+    );
 }
 
 void metrics_dec_connections()
 {
-    pthread_rwlock_wrlock(&g_lock);
-
-    g_metrics.active_connections--;
-
-    pthread_rwlock_unlock(&g_lock);
+    atomic_fetch_sub(
+        &g_metrics.active_connections,
+        1
+    );
 }
 
 void metrics_snapshot(metrics_t *out)
 {
-    pthread_rwlock_rdlock(&g_lock);
+    out->active_connections = atomic_load(&g_metrics.active_connections);
 
-    *out = g_metrics;
-
-    pthread_rwlock_unlock(&g_lock);
+    out->total_requests = atomic_load(&g_metrics.total_requests);
 }

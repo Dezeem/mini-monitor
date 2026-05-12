@@ -2,13 +2,13 @@
 #define METRICS_H
 
 #include <stdint.h>
-#include <pthread.h>
+#include <stdatomic.h>
 
 typedef struct {
 
-    uint64_t total_requests;
+    atomic_ulong total_requests;
 
-    uint64_t active_connections;
+    atomic_ulong active_connections;
 
 } metrics_t;
 
