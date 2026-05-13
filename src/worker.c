@@ -11,16 +11,13 @@ static task_queue_t g_queue;
 
 static void process_task(task_t *task)
 {
-    printf("====== REQUEST ======\n");
-    printf("%s\n", task->request);
-
     metrics_inc_requests();
 
     char response_buf[2048];
     const char *response_ptr = NULL;
     size_t response_len = 0;
 
-    if(strstr(task->request, "GET /metrics")) {
+    if(strstr(task->request, "/metrics")) {
         metrics_t snapshot;
         metrics_snapshot(&snapshot);
 
@@ -35,6 +32,7 @@ static void process_task(task_t *task)
                            "HTTP/1.1 200 OK\r\n"
                            "Content-Type: text/plain\r\n"
                            "Content-Length: %d\r\n"
+                           "Connection: close\r\n"
                            "\r\n"
                            "%s",
                            body_len, body);
@@ -47,11 +45,10 @@ static void process_task(task_t *task)
             response_len = strlen(response_ptr);
         }
     } else {
-        sleep(2);
-
         response_ptr = "HTTP/1.1 200 OK\r\n"
                        "Content-Type: text/plain\r\n"
                        "Content-Length: 20\r\n"
+                       "Connection: close\r\n"
                        "\r\n"
                        "hello mini-monitor\r\n";
         response_len = strlen(response_ptr);
