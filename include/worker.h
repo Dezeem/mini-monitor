@@ -13,4 +13,6 @@ int worker_pool_init(int num_threads);
 
 void worker_submit(task_t *task);
 
+void handle_ping(int client_fd);
+
 #endif

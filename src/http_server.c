@@ -59,16 +59,29 @@ static void client_callback(int fd, void *arg)
     */
 
     if(strstr(conn->read_buf, "\r\n\r\n")) {
-        task_t *task = malloc(sizeof(task_t));
+        if(strstr(conn->read_buf, "GET /ping HTTP/1.1")) {
+            handle_ping(fd);
 
-        task->client_fd = fd;
+            metrics_dec_connections();
 
-        strcpy(
-            task->request,
-            conn->read_buf
-        );
+            close(fd);
 
-        worker_submit(task);
+            free(conn);
+
+            return;
+        } else {
+            task_t *task = malloc(sizeof(task_t));
+
+            task->client_fd = fd;
+
+            strncpy(
+                task->request,
+                conn->read_buf,
+                sizeof(task->request) - 1
+            );
+
+            worker_submit(task);
+        }
     }
 }
 

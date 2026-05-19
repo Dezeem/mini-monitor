@@ -9,6 +9,23 @@
 
 static task_queue_t g_queue;
 
+void handle_ping(int client_fd)
+{
+    char response[1024];
+    int len = snprintf(response, sizeof(response),
+                       "HTTP/1.1 200 OK\r\n"
+                       "Content-Type: text/plain\r\n"
+                       "Content-Length: %d\r\n"
+                       "Connection: close\r\n"
+                       "\r\n"
+                       "hello mini-monitor\r\n",
+                       20);
+    
+    write(client_fd, response, len);
+
+    return;
+}
+
 static void process_task(task_t *task)
 {
     metrics_inc_requests();
